@@ -38,6 +38,11 @@ public class PessoaServiceImpl implements PessoaService {
                 .orElseThrow(() -> new ResourceAccessException("Pessoa não encontrada"));
     }
 
+    @Override
+    public PessoaModel findByNome(String name) {
+        return repository.findByNome(name)
+                .orElseThrow(() -> new ResourceAccessException("Pessoa não encontrada"));
+    }
 
     @Override
     public PessoaModel create(PessoaDto dto) {

@@ -3,7 +3,9 @@ package com.globaltech.api.controller;
 
 import static org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.*;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import com.globaltech.api.controller.dtos.PessoaDto;
 import jakarta.persistence.EntityNotFoundException;
@@ -12,14 +14,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import com.globaltech.api.domain.models.PessoaModel;
 import com.globaltech.api.services.PessoaService;
@@ -31,6 +26,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 @RestController
 @RequestMapping(value = "/cadastro", produces = {"application/json"})
 @Tag(name = "Pessoa API", description = "API para operações de inclusão, alteração, deleção e update")
+@CrossOrigin(origins = "http://localhost:4200")
 public class PessoaController {
 
     @Autowired
@@ -79,6 +75,23 @@ public class PessoaController {
         }
     }
 
+    @GetMapping("/name/{name}")
+    @Operation(summary = "Buscar usuário por nome", description = "Retorna um usuário específico pelo nome")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Usuário encontrado com sucesso"),
+            @ApiResponse(responseCode = "404", description = "Usuário não encontrado"),
+            @ApiResponse(responseCode = "500", description = "Erro interno no servidor")
+    })
+    public ResponseEntity getUserByName(@PathVariable String name)  {
+        PessoaModel user = service.findByNome(name);
+        if (user != null) {
+            user.add(linkTo(methodOn(PessoaController.class).getAllUsers()).withRel("Pessoa List"));
+            return ResponseEntity.status(HttpStatus.OK).body(user);
+        } else {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+        }
+    }
+
     @PostMapping("/add")
     @Operation(summary = "Adicionar novo usuário", description = "Exemplo: { \"nome\": \"João Teste\", \"dataNasc\": \"1999-11-10\", \"cpf\": \"12345678901\", \"sexo\": \"M\", \"altura\": 1.70, \"peso\": 80.5 }")
     @ApiResponses(value = {
@@ -87,6 +100,7 @@ public class PessoaController {
             @ApiResponse(responseCode = "500", description = "Erro interno no servidor")
     })
     public ResponseEntity<Object> addUser(@Validated @RequestBody PessoaDto dto) {
+    	System.out.println("Dados recebidos na API: " + dto);
         try {
             PessoaModel newUser = service.create(dto);
             newUser.add(linkTo(methodOn(PessoaController.class).getUserById(newUser.getId())).withSelfRel());
@@ -128,5 +142,28 @@ public class PessoaController {
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
+    }
+
+    @GetMapping("/peso-ideal/{altura}/{genero}")
+    public ResponseEntity<?> calcularPesoIdeal(@PathVariable double altura, @PathVariable String genero) {
+        if (altura <= 0) {
+            return ResponseEntity.badRequest().body("Altura deve ser maior que zero.");
+        }
+
+        double pesoIdeal;
+        if (genero.equalsIgnoreCase("m")) {
+            pesoIdeal = (72.7 * altura) - 58;
+        } else if (genero.equalsIgnoreCase("f")) {
+            pesoIdeal = (62.1 * altura) - 44.7;
+        } else {
+            return ResponseEntity.badRequest().body("Gênero inválido. Use 'M' ou 'F'.");
+        }
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("altura", altura);
+        response.put("genero", genero);
+        response.put("pesoIdeal", pesoIdeal);
+
+        return ResponseEntity.ok(response);
     }
 }
